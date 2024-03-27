@@ -43,7 +43,7 @@ public static class CheesegullExtensions
             Creator = beatmapset.Creator,
             Source = beatmapset.Source,
             Tags = beatmapset.Tags,
-            HasVideo = beatmapset.Video ? 1 : 0,
+            HasVideo = beatmapset.Video,
             Genre = beatmapset.Genre.Id,
             Language = beatmapset.Language.Id,
             Favourites = beatmapset.FavouriteCount,
