@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
 using BeatmapsService.Models.Osu;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace BeatmapsService.Adapters;
 
@@ -77,7 +78,49 @@ public class OsuAdapter(IHttpClientFactory httpClientFactory) : IOsuAdapter
 
         response.EnsureSuccessStatusCode();
 
-        var beatmapResponse = await response.Content.ReadFromJsonAsync<BeatmapsetExtended>(cancellationToken);
-        return beatmapResponse;
+        var beatmapsetResponse = await response.Content.ReadFromJsonAsync<BeatmapsetExtended>(cancellationToken);
+        return beatmapsetResponse;
+    }
+
+    public async Task<List<SearchBeatmapset>> SearchBeatmapsetsAsync(
+        string? query,
+        int? mode,
+        string? status,
+        int page,
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            { "page", page.ToString() },
+        };
+
+        if (query is not null)
+            parameters["q"] = query;
+
+        if (mode is not null)
+            parameters["m"] = mode.ToString();
+
+        if (status is not null)
+            parameters["s"] = status;
+        
+        var request = new HttpRequestMessage
+        {
+            RequestUri = new Uri(QueryHelpers.AddQueryString("https://osu.ppy.sh/api/v2/beatmapsets/search", parameters)),
+            Headers =
+            {
+                Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
+            },
+            Method = HttpMethod.Get,
+        };
+        
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var beatmapsetsResponse = await response.Content.ReadFromJsonAsync<SearchBeatmapsetResponse>(cancellationToken);
+        ArgumentNullException.ThrowIfNull(beatmapsetsResponse);
+
+        return beatmapsetsResponse.Beatmapsets;
     }
 }

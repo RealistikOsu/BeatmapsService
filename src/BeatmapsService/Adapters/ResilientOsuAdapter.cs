@@ -68,4 +68,37 @@ public class ResilientOsuAdapter(IOsuAdapter osuAdapter) : IOsuAdapter
 
         return response;
     }
+
+    public async Task<List<SearchBeatmapset>> SearchBeatmapsetsAsync(
+        string? query,
+        int? mode,
+        string? status,
+        int page,
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        var resiliencePipeline = new ResiliencePipelineBuilder<List<SearchBeatmapset>>()
+            .AddRetry(new RetryStrategyOptions<List<SearchBeatmapset>>
+            {
+                MaxRetryAttempts = 3,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                Delay = TimeSpan.FromSeconds(1),
+                ShouldHandle = new PredicateBuilder<List<SearchBeatmapset>>()
+                    .Handle<HttpRequestException>()
+            })
+            .Build();
+
+        var response = await resiliencePipeline.ExecuteAsync(
+            async token => await osuAdapter.SearchBeatmapsetsAsync(
+                query,
+                mode,
+                status,
+                page,
+                accessToken,
+                token),
+            cancellationToken);
+
+        return response;
+    }
 }

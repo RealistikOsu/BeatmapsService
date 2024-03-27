@@ -11,7 +11,7 @@ namespace BeatmapsService.Controllers;
 public class BeatmapsetController(IOsuService osuService) : ControllerBase
 {
     [HttpGet("{beatmapsetId}")]
-    public async Task<Results<Ok<CheesegullBeatmapset>, NotFound, ProblemHttpResult>> FindBeatmapById(
+    public async Task<Results<Ok<CheesegullBeatmapset>, NotFound, ProblemHttpResult>> FindBeatmapsetById(
         [FromRoute] int beatmapsetId,
         CancellationToken cancellationToken)
     {

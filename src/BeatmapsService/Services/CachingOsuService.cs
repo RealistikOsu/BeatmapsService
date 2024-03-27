@@ -53,4 +53,16 @@ public class CachingOsuService(IOsuService osuService, ICache cache, ILogger<Cac
         
         return item;
     }
+
+    // TODO: figure out if there's a reasonable way to cache this
+    public Task<List<SearchBeatmapset>> SearchBeatmapsetsAsync(
+        string? query,
+        int? mode,
+        int? status,
+        int pageSize,
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        return osuService.SearchBeatmapsetsAsync(query, mode, status, pageSize, page, cancellationToken);
+    }
 }

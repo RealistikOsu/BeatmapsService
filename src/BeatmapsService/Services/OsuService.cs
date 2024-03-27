@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using BeatmapsService.Adapters;
+using BeatmapsService.Helpers;
 using BeatmapsService.Models.Osu;
 using Microsoft.Extensions.Options;
 
@@ -84,5 +85,51 @@ public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmap
             logger.LogInformation("Served beatmapset ID {@BeatmapsetId} from API v2", beatmapsetId);
 
         return beatmapset;
+    }
+
+    public async Task<List<SearchBeatmapset>> SearchBeatmapsetsAsync(
+        string? query,
+        int? mode,
+        int? status,
+        int pageSize,
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        await Authenticate(cancellationToken);
+
+        var rankedStatus = status is not null ? RankedHelper.ConvertRankedStatus(status.Value) : null;
+
+        var currentPage = page;
+        var pagesRequired = (int)Math.Ceiling(pageSize / 50d);
+
+        var beatmapsets = new List<SearchBeatmapset>();
+
+        // osu! api can do 50 per page at MAX.
+        // this ensures page sizes greater than 50 will still work
+        while (pagesRequired > 0)
+        {
+            await WaitForReady(cancellationToken);
+            
+            var pageBeatmapsets = await osuAdapter.SearchBeatmapsetsAsync(
+                query,
+                mode,
+                rankedStatus,
+                currentPage,
+                _accessToken,
+                cancellationToken);
+
+            beatmapsets.AddRange(pageBeatmapsets);
+
+            // if there's less than 50 beatmapsets, we know that there's no point advancing further
+            if (pageBeatmapsets.Count < 50)
+                break;
+
+            currentPage += 1;
+            pagesRequired -= 1;
+        }
+        
+        logger.LogInformation("Served beatmapset search with {@BeatmapsetCount} items from API", beatmapsets.Count);
+
+        return beatmapsets.Take(pageSize).ToList();
     }
 }

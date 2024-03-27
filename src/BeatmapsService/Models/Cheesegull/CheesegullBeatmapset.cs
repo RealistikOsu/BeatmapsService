@@ -41,10 +41,10 @@ public class CheesegullBeatmapset
     public required bool HasVideo { get; init; }
     
     [JsonPropertyName("Genre")]
-    public required int Genre { get; init; }
+    public required int? Genre { get; init; }
     
     [JsonPropertyName("Language")]
-    public required int Language { get; init; }
+    public required int? Language { get; init; }
     
     [JsonPropertyName("Favourites")]
     public required int Favourites { get; init; }
