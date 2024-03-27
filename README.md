@@ -1,3 +1,3 @@
 # BeatmapsService
 
-osu! API v2 -> Cheesegull shill.
+A plug and play alternative to using a mirror for beatmap data.
