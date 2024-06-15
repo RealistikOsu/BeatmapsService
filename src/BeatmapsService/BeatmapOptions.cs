@@ -5,6 +5,9 @@ namespace BeatmapsService;
 public class BeatmapOptions
 {
     [Required]
+    public required string ServiceHost { get; init; }
+
+    [Required]
     public required int ServicePort { get; init; }
 
     [Required]

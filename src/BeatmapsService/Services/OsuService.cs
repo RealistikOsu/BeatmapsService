@@ -1,12 +1,12 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using BeatmapsService.Adapters;
+using BeatmapsService.Api;
 using BeatmapsService.Helpers;
 using BeatmapsService.Models.Osu;
 using Microsoft.Extensions.Options;
 
 namespace BeatmapsService.Services;
 
-public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmapOptions, ILogger<OsuService> logger) : IOsuService
+public class OsuService(IOsuApi osuApi, IOptions<BeatmapOptions> beatmapOptions, ILogger<OsuService> logger) : IOsuService
 {
     private const int MaxRequestCountPerMinute = 100;
     private static readonly TimeSpan BackoffTime = TimeSpan.FromSeconds(5);
@@ -23,9 +23,12 @@ public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmap
         if (_accessToken is not null && _expiresAt is not null && DateTimeOffset.UtcNow < _expiresAt)
             return;
 
-        var oauthResponse = await osuAdapter.AuthenticateAsync(
-            beatmapOptions.Value.ClientId, 
-            beatmapOptions.Value.ClientSecret,
+        var oauthResponse = await osuApi.AuthenticateAsync(
+            new OAuthRequest
+            {
+                ClientId = beatmapOptions.Value.ClientId.ToString(),
+                ClientSecret = beatmapOptions.Value.ClientSecret,
+            },
             cancellationToken);
 
         _accessToken = oauthResponse.AccessToken;
@@ -60,13 +63,13 @@ public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmap
         await Authenticate(cancellationToken);
         await WaitForReady(cancellationToken);
 
-        var beatmap = await osuAdapter.FindBeatmapByIdAsync(
+        var beatmap = await osuApi.FindBeatmapByIdAsync(
             beatmapId,
             _accessToken,
             cancellationToken);
         
         if (beatmap is not null)
-            logger.LogInformation("Served beatmap ID {@BeatmapId} from API v2", beatmapId);
+            logger.LogInformation("Served beatmap ID {@BeatmapId} from API", beatmapId);
 
         return beatmap;
     }
@@ -76,13 +79,13 @@ public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmap
         await Authenticate(cancellationToken);
         await WaitForReady(cancellationToken);
 
-        var beatmapset = await osuAdapter.FindBeatmapsetByIdAsync(
+        var beatmapset = await osuApi.FindBeatmapsetByIdAsync(
             beatmapsetId,
             _accessToken,
             cancellationToken);
         
         if (beatmapset is not null)
-            logger.LogInformation("Served beatmapset ID {@BeatmapsetId} from API v2", beatmapsetId);
+            logger.LogInformation("Served beatmapset ID {@BeatmapsetId} from API", beatmapsetId);
 
         return beatmapset;
     }
@@ -95,9 +98,12 @@ public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmap
         int page,
         CancellationToken cancellationToken = default)
     {
-        await Authenticate(cancellationToken);
+        var rankedStatus = RankedStatusHelper.ConvertRankedStatus(status);
+        var sort = RankedStatusHelper.GetRankedStatusSort(rankedStatus);
 
-        var rankedStatus = status is not null ? RankedHelper.ConvertRankedStatus(status.Value) : null;
+        // if the user provided a query, relevance should always take priority
+        if (!string.IsNullOrWhiteSpace(query))
+            sort = "relevance_desc";
 
         var currentPage = page;
         var pagesRequired = (int)Math.Ceiling(pageSize / 50d);
@@ -108,20 +114,22 @@ public class OsuService(IOsuAdapter osuAdapter, IOptions<BeatmapOptions> beatmap
         // this ensures page sizes greater than 50 will still work
         while (pagesRequired > 0)
         {
+            await Authenticate(cancellationToken);
             await WaitForReady(cancellationToken);
-            
-            var pageBeatmapsets = await osuAdapter.SearchBeatmapsetsAsync(
+
+            var searchBeatmapsetResponse = await osuApi.SearchBeatmapsetsAsync(
                 query,
                 mode,
                 rankedStatus,
+                sort,
                 currentPage,
                 _accessToken,
                 cancellationToken);
 
-            beatmapsets.AddRange(pageBeatmapsets);
+            beatmapsets.AddRange(searchBeatmapsetResponse.Beatmapsets);
 
             // if there's less than 50 beatmapsets, we know that there's no point advancing further
-            if (pageBeatmapsets.Count < 50)
+            if (searchBeatmapsetResponse.Beatmapsets.Count < 50)
                 break;
 
             currentPage += 1;

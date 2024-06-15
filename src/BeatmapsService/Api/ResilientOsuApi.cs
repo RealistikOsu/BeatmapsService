@@ -2,11 +2,11 @@
 using Polly;
 using Polly.Retry;
 
-namespace BeatmapsService.Adapters;
+namespace BeatmapsService.Api;
 
-public class ResilientOsuAdapter(IOsuAdapter osuAdapter) : IOsuAdapter
+public class ResilientOsuApi(IOsuApi osuApi) : IOsuApi
 {
-    public async Task<OAuthResponse> AuthenticateAsync(int clientId, string clientSecret, CancellationToken cancellationToken = default)
+    public async Task<OAuthResponse> AuthenticateAsync(OAuthRequest request, CancellationToken cancellationToken = default)
     {
         var resiliencePipeline = new ResiliencePipelineBuilder<OAuthResponse>()
             .AddRetry(new RetryStrategyOptions<OAuthResponse>
@@ -21,7 +21,7 @@ public class ResilientOsuAdapter(IOsuAdapter osuAdapter) : IOsuAdapter
             .Build();
 
         var response = await resiliencePipeline.ExecuteAsync(
-            async token => await osuAdapter.AuthenticateAsync(clientId, clientSecret, token),
+            async token => await osuApi.AuthenticateAsync(request, token),
             cancellationToken);
 
         return response;
@@ -42,7 +42,7 @@ public class ResilientOsuAdapter(IOsuAdapter osuAdapter) : IOsuAdapter
             .Build();
 
         var response = await resiliencePipeline.ExecuteAsync(
-            async token => await osuAdapter.FindBeatmapByIdAsync(beatmapId, accessToken, token),
+            async token => await osuApi.FindBeatmapByIdAsync(beatmapId, accessToken, token),
             cancellationToken);
         
         return response;
@@ -63,37 +63,39 @@ public class ResilientOsuAdapter(IOsuAdapter osuAdapter) : IOsuAdapter
             .Build();
 
         var response = await resiliencePipeline.ExecuteAsync(
-            async token => await osuAdapter.FindBeatmapsetByIdAsync(beatmapsetId, accessToken, token),
+            async token => await osuApi.FindBeatmapsetByIdAsync(beatmapsetId, accessToken, token),
             cancellationToken);
 
         return response;
     }
 
-    public async Task<List<SearchBeatmapset>> SearchBeatmapsetsAsync(
+    public async Task<SearchBeatmapsetResponse> SearchBeatmapsetsAsync(
         string? query,
         int? mode,
         string? status,
+        string? sort,
         int page,
         string accessToken,
         CancellationToken cancellationToken = default)
     {
-        var resiliencePipeline = new ResiliencePipelineBuilder<List<SearchBeatmapset>>()
-            .AddRetry(new RetryStrategyOptions<List<SearchBeatmapset>>
+        var resiliencePipeline = new ResiliencePipelineBuilder<SearchBeatmapsetResponse>()
+            .AddRetry(new RetryStrategyOptions<SearchBeatmapsetResponse>
             {
                 MaxRetryAttempts = 3,
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
                 Delay = TimeSpan.FromSeconds(1),
-                ShouldHandle = new PredicateBuilder<List<SearchBeatmapset>>()
+                ShouldHandle = new PredicateBuilder<SearchBeatmapsetResponse>()
                     .Handle<HttpRequestException>()
             })
             .Build();
 
         var response = await resiliencePipeline.ExecuteAsync(
-            async token => await osuAdapter.SearchBeatmapsetsAsync(
+            async token => await osuApi.SearchBeatmapsetsAsync(
                 query,
                 mode,
                 status,
+                sort,
                 page,
                 accessToken,
                 token),

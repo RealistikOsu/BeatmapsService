@@ -1,7 +1,7 @@
 #!/usr/bin/make
 
 build:
-	docker build -t beatmaps-service:latest .
+	docker build -t beatmaps-service:latest -t registry.digitalocean.com/akatsuki/beatmaps-service:latest .
 
 run:
 	docker-compose up beatmaps-service
