@@ -1,6 +1,9 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y curl
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
@@ -23,7 +26,7 @@ COPY --from=publish /app/publish .
 COPY scripts /scripts
 RUN chmod u+x /scripts/*
 
-RUN apt update && apt install -y openssl python3-pip git
+RUN apt update && apt install -y openssl python3-pip git curl
 RUN pip install --break-system-packages git+https://github.com/osuAkatsuki/akatsuki-cli
 
 ENTRYPOINT ["/scripts/bootstrap.sh"]
